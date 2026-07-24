@@ -7,8 +7,10 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, x-wizztech-sdk-key',
+  'Access-Control-Allow-Headers': 
+    'Content-Type, Authorization, X-Requested-With, x-wizztech-sdk-key, x-wizztech-sdk-version',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
   'Content-Type': 'application/json'
 };
 
