@@ -549,9 +549,6 @@ export const Websites: React.FC = () => {
                   <h3 className="text-sm font-bold text-black">
                     {editingWebsite ? 'Edit Website' : 'Register Website'}
                   </h3>
-                  <p className="text-[10px] text-secondary mt-0.5">
-                    {editingWebsite ? 'Modify registered website details' : 'Deploy protection to a new website'}
-                  </p>
                 </div>
                 <button
                   disabled={isSaving}

@@ -101,9 +101,9 @@ export const handler: Handler = async (event: HandlerEvent) => {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabaseKey) {
     console.error('[Generate Demo Link API] Database credentials missing');
     return jsonResponse(500, {
       status: 'error',
@@ -111,7 +111,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
     });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
   // 1. Fetch website from Supabase
   const { data: website, error: websiteError } = await supabase

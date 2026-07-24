@@ -5,10 +5,6 @@
   style.innerHTML = 'html, body { display: none !important; background: #000000 !important; }';
   document.documentElement.appendChild(style);
 
-  // Supabase Configuration (publishable anonymous credentials)
-  const SUPABASE_URL = "https://hciolzairdpnouccywai.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_1e4hqxq9y_wWb9VvUNyiAA_JVkTgG_k";
-
   // Determine platform base URL dynamically from the script source
   let platformBaseUrl = "http://localhost:5173";
   if (document.currentScript) {
@@ -17,6 +13,20 @@
       platformBaseUrl = scriptUrl.origin;
     } catch (e) {
       console.warn('Could not parse script tag src, falling back to localhost', e);
+    }
+  }
+
+  const IS_DEV = platformBaseUrl.includes('localhost') || platformBaseUrl.includes('127.0.0.1');
+
+  function devLog(...args) {
+    if (IS_DEV) {
+      console.log(...args);
+    }
+  }
+
+  function devWarn(...args) {
+    if (IS_DEV) {
+      console.warn(...args);
     }
   }
 
@@ -31,7 +41,13 @@
   }
 
   // Helper to render the premium restricting screen
-  function showRestrictionScreen() {
+  function showRestrictionScreen(status) {
+    const isExpired = status === 'demo_expired';
+    const title = isExpired ? 'Demo Link Expired' : 'Access Restricted';
+    const message = isExpired
+      ? `The temporary demo link for this website has expired.<br/>Please request a new link from WizzTech.`
+      : `This website is protected by WizzTech Digital Agency.<br/>Please request a valid demo link to access this website.`;
+
     // Remove all existing HTML in the document and write the premium restricted page
     document.open();
     document.write(`
@@ -40,7 +56,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Access Restricted | WizzTech Security</title>
+  <title>${title} | WizzTech Security</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
@@ -184,10 +200,9 @@
       <div class="logo-glow"></div>
       <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
     </div>
-    <h1>Access Restricted</h1>
+    <h1>${title}</h1>
     <div class="text-msg">
-      This website is protected by WizzTech Digital Agency.<br/>
-      The link you're trying to access is unavailable or has expired.<br/><br/>
+      ${message}<br/><br/>
       <a href="https://wa.me/19284385776" target="_blank" class="whatsapp-link">
         Please request a new demo link from WizzTech.
       </a>
@@ -200,54 +215,81 @@
     document.close();
   }
 
-  // Query Supabase directly via REST API
-  async function apiCall(endpoint, params = {}) {
-    const query = new URLSearchParams(params).toString();
-    const url = `${SUPABASE_URL}/rest/v1/${endpoint}?${query}`;
-    
+  // Call WizzTech validation API
+  async function callValidationApi(websiteUrl, demoToken, incrementView = false) {
+    const url = `${platformBaseUrl}/.netlify/functions/validate`;
     const response = await fetch(url, {
+      method: 'POST',
       headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      }
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ websiteUrl, demoToken, incrementView })
     });
-    
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      throw new Error(`Validation API request failed: ${response.statusText}`);
     }
-    
     return response.json();
+  }
+
+  // Start background validation interval
+  function startBackgroundValidation(tokenValue) {
+    devLog('[SDK] Starting background validation check every 4 minutes');
+    setInterval(async () => {
+      try {
+        // Automatically clear expired session cache first
+        const expiry = sessionStorage.getItem('wizztech_auth_expiry');
+        if (expiry && new Date(expiry) <= new Date()) {
+          devLog('[SDK] Session expired in background. Clearing cache and restricting.');
+          sessionStorage.removeItem('wizztech_auth_token');
+          sessionStorage.removeItem('wizztech_auth_expiry');
+          sessionStorage.removeItem('wizztech_auth_site_id');
+          showRestrictionScreen('demo_expired');
+          return;
+        }
+
+        devLog('[SDK] Running background token status verification');
+        const result = await callValidationApi(window.location.href, tokenValue, false);
+        if (result.status !== 'allowed') {
+          devWarn('[SDK] Token revoked or invalidated in background:', result.status);
+          sessionStorage.removeItem('wizztech_auth_token');
+          sessionStorage.removeItem('wizztech_auth_expiry');
+          sessionStorage.removeItem('wizztech_auth_site_id');
+          showRestrictionScreen(result.status);
+        } else {
+          devLog('[SDK] Background validation check succeeded, session cache active');
+          sessionStorage.setItem('wizztech_auth_expiry', result.expiresAt);
+        }
+      } catch (e) {
+        devWarn('[SDK] Background validation check skipped due to request error:', e);
+      }
+    }, 240000); // 4 minutes
   }
 
   // Core authorization flow
   async function runAuthorizationFlow() {
     try {
-      const hostname = window.location.hostname;
-      
-      // 1. Fetch website record matching current host to verify protection requirements
-      const websites = await apiCall('websites', { select: '*' });
-      const currentSite = websites.find(w => {
-        try {
-          const wUrl = new URL(w.url);
-          return wUrl.hostname === hostname || hostname.endsWith(wUrl.hostname);
-        } catch {
-          return w.url.includes(hostname);
-        }
-      });
+      const currentUrlStr = window.location.href;
 
-      if (!currentSite) {
-        // Not registered, bypass protection
+      // 4. Automatically clear expired session cache before making any validation request
+      const sessionExpiry = sessionStorage.getItem('wizztech_auth_expiry');
+      if (sessionExpiry && new Date(sessionExpiry) <= new Date()) {
+        devLog('[SDK] Expired session detected in sessionStorage. Clearing cache.');
+        sessionStorage.removeItem('wizztech_auth_token');
+        sessionStorage.removeItem('wizztech_auth_expiry');
+        sessionStorage.removeItem('wizztech_auth_site_id');
+      }
+
+      // 3. Respect Session Cache: Check if valid session is already cached
+      const cachedToken = sessionStorage.getItem('wizztech_auth_token');
+      const cachedExpiry = sessionStorage.getItem('wizztech_auth_expiry');
+      if (cachedToken && cachedExpiry && new Date(cachedExpiry) > new Date()) {
+        devLog('[SDK] Valid session cache found. Allowing access immediately.');
         showPage();
+        startBackgroundValidation(cachedToken);
         return;
       }
 
-      if (!currentSite.is_protected) {
-        // Registered but protection toggled OFF, bypass protection
-        showPage();
-        return;
-      }
-
-      // 2. Check for token in clean path `/demo/{token}`
+      // Check URL for token
       const path = window.location.pathname;
       const cleanPathMatch = path.match(/^\/demo\/([A-Za-z0-9]{7,8})$/);
       let tokenValue = null;
@@ -255,102 +297,72 @@
       if (cleanPathMatch) {
         tokenValue = cleanPathMatch[1];
       } else {
-        // Query param fallback
         const urlParams = new URLSearchParams(window.location.search);
         tokenValue = urlParams.get('wz_token') || urlParams.get('demo');
       }
 
-      // 3. Token is provided in the URL: Validate it
+      // 2. Demo link views should only increment once per browser session
+      let incrementView = false;
       if (tokenValue) {
-        const matchingLinks = await apiCall('demo_links', {
-          token: `eq.${tokenValue}`,
-          website_id: `eq.${currentSite.id}`,
-          select: '*'
-        });
-
-        const activeLink = matchingLinks[0];
-        
-        if (activeLink && new Date(activeLink.expiry_at) > new Date()) {
-          // Token is valid and matches this website. Cache access in sessionStorage.
-          sessionStorage.setItem('wizztech_auth_token', tokenValue);
-          sessionStorage.setItem('wizztech_auth_expiry', activeLink.expiry_at);
-          sessionStorage.setItem('wizztech_auth_site_id', currentSite.id);
-
-          // If accessed via clean path /demo/TOKEN, redirect back to / for a cleaner URL
-          if (cleanPathMatch) {
-            window.history.replaceState(null, '', '/');
-          }
-          showPage();
-          return;
-        } else {
-          // Invalid or expired token: show restriction screen
-          showRestrictionScreen();
-          return;
+        const hasIncremented = sessionStorage.getItem('wizztech_view_incremented_' + tokenValue);
+        if (!hasIncremented) {
+          incrementView = true;
         }
       }
 
-      // 4. Check for active token session stored in sessionStorage
-      const sessionToken = sessionStorage.getItem('wizztech_auth_token');
-      const sessionExpiry = sessionStorage.getItem('wizztech_auth_expiry');
-      const sessionSiteId = sessionStorage.getItem('wizztech_auth_site_id');
+      devLog('[SDK] Querying validation API with URL token:', tokenValue);
+      const result = await callValidationApi(currentUrlStr, tokenValue, incrementView);
 
-      if (sessionToken && sessionExpiry && sessionSiteId === currentSite.id) {
-        if (new Date(sessionExpiry) > new Date()) {
-          // Double-check with database to ensure token was not deleted
-          const verifyLinks = await apiCall('demo_links', {
-            token: `eq.${sessionToken}`,
-            website_id: `eq.${currentSite.id}`,
-            select: 'id'
-          });
+      if (result.status === 'allowed') {
+        devLog('[SDK] Validation succeeded: access allowed');
 
-          if (verifyLinks.length > 0) {
-            showPage();
-            return;
+        if (tokenValue && result.expiresAt && result.websiteId) {
+          // Store token in session cache
+          sessionStorage.setItem('wizztech_auth_token', tokenValue);
+          sessionStorage.setItem('wizztech_auth_expiry', result.expiresAt);
+          sessionStorage.setItem('wizztech_auth_site_id', result.websiteId);
+          sessionStorage.setItem('wizztech_view_incremented_' + tokenValue, 'true');
+
+          // Confirm cache written successfully before modifying URL
+          const checkToken = sessionStorage.getItem('wizztech_auth_token');
+          if (checkToken === tokenValue) {
+            // Restore original application route
+            if (cleanPathMatch) {
+              // Path was /demo/token. Restore path using 'redirect' query parameter if present, or /
+              const urlParams = new URLSearchParams(window.location.search);
+              const redirectPath = urlParams.get('redirect') || '/';
+              window.history.replaceState(null, '', redirectPath);
+            } else {
+              // Token was in query params. Only strip token parameters, preserving original route.
+              const url = new URL(window.location.href);
+              url.searchParams.delete('wz_token');
+              url.searchParams.delete('demo');
+              window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+            }
           }
         }
-        // If local storage is invalid or database verification failed, clear storage
+
+        showPage();
+        if (tokenValue) {
+          startBackgroundValidation(tokenValue);
+        }
+        return;
+      }
+
+      // If token is invalid or expired, clear session cache
+      if (tokenValue) {
         sessionStorage.removeItem('wizztech_auth_token');
         sessionStorage.removeItem('wizztech_auth_expiry');
         sessionStorage.removeItem('wizztech_auth_site_id');
       }
 
-      // 5. Cross-domain check for authenticated owner bypass
-      // Embed an invisible iframe pointing to our platform to check if owner is logged in
-      const iframe = document.createElement('iframe');
-      iframe.src = `${platformBaseUrl}/iframe-auth-check`;
-      iframe.style.display = 'none';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = 'none';
-      iframe.id = 'wizztech-auth-iframe';
-      document.documentElement.appendChild(iframe);
-
-      // Listen for message response from iframe
-      const authTimeout = setTimeout(() => {
-        // Fallback if iframe fails to load or respond
-        showRestrictionScreen();
-      }, 3000);
-
-      window.addEventListener('message', function handleIframeAuth(event) {
-        if (event.origin === platformBaseUrl && event.data && event.data.type === 'WIZZTECH_AUTH_RESULT') {
-          clearTimeout(authTimeout);
-          window.removeEventListener('message', handleIframeAuth);
-          iframe.remove();
-
-          if (event.data.isAuthenticated) {
-            // Owner is logged in! Allow access bypass
-            showPage();
-          } else {
-            // Not authenticated, no valid token. Restrict access.
-            showRestrictionScreen();
-          }
-        }
-      });
+      devWarn('[SDK] Validation rejected, status:', result.status);
+      showRestrictionScreen(result.status);
 
     } catch (e) {
-      console.error('WizzTech security validation failed:', e);
-      // Fail secure: restrict page access if any query fails
-      showRestrictionScreen();
+      devWarn('WizzTech security validation request failed:', e);
+      // Fail secure on request error
+      showRestrictionScreen('blocked');
     }
   }
 
