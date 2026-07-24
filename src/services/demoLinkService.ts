@@ -1,7 +1,34 @@
 import { supabase } from './supabaseClient';
 import type { DemoLink, CreateDemoLinkInput } from '../types/demoLink';
 
+export interface GenerateDemoLinkResponse {
+  status: string;
+  demoUrl: string;
+  rawToken: string;
+  expiresAt: string;
+}
+
 export const demoLinkService = {
+  /**
+   * Calls the dedicated backend endpoint to generate a secure, SHA-256 hashed demo link.
+   */
+  async generateDemoLinkViaApi(params: { websiteId: string; expiry: string }): Promise<GenerateDemoLinkResponse> {
+    const response = await fetch('/.netlify/functions/generate-demo-link', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(params)
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.message || 'Failed to generate secure demo link via server API');
+    }
+
+    return response.json();
+  },
+
   /**
    * Fetches all registered demo links for the authenticated user,
    * including the associated website's name and URL details.
@@ -21,8 +48,7 @@ export const demoLinkService = {
   },
 
   /**
-   * Generates/registers a new temporary demo link.
-   * created_by will default to auth.uid() automatically via DB schema.
+   * Generates/registers a new temporary demo link directly via Supabase.
    */
   async createDemoLink(demoLink: CreateDemoLinkInput): Promise<DemoLink> {
     const { data, error } = await supabase

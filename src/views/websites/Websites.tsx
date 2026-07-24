@@ -13,8 +13,12 @@ import {
   X, 
   Loader2, 
   Check,
-  AlertCircle
+  AlertCircle,
+  ExternalLink,
+  Clock,
+  ShieldAlert
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { 
   useWebsites, 
   useCreateWebsite, 
@@ -22,6 +26,7 @@ import {
   useDeleteWebsite, 
   useToggleWebsiteProtection 
 } from '../../hooks/useWebsites';
+import { demoLinkService } from '../../services/demoLinkService';
 import type { Website } from '../../types/website';
 
 const websiteSchema = z.object({
@@ -38,6 +43,13 @@ export const Websites: React.FC = () => {
   // Drawer states
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingWebsite, setEditingWebsite] = useState<Website | null>(null);
+
+  // Modal States
+  const [openWebsiteModalSite, setOpenWebsiteModalSite] = useState<Website | null>(null);
+  const [selectedExpiry, setSelectedExpiry] = useState<string>('30m');
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+
+  const [toggleConfirmSite, setToggleConfirmSite] = useState<Website | null>(null);
 
   // React Query Hooks
   const { data: websites = [], isLoading: loading, error } = useWebsites();
@@ -105,7 +117,7 @@ export const Websites: React.FC = () => {
       }
       setIsDrawerOpen(false);
     } catch {
-      // Errors are caught and handled by toast in mutations, doing nothing here
+      // Errors handled by toast mutation hooks
     }
   };
 
@@ -119,19 +131,55 @@ export const Websites: React.FC = () => {
     try {
       await deleteWebsiteMutation.mutateAsync(id);
     } catch {
-      // Errors are handled by toast in mutation
+      // Errors handled by toast mutation hooks
     }
   };
 
-  // Inline Protection Toggle
-  const handleToggleProtection = async (site: Website) => {
+  // Initiate Open Website modal
+  const handleInitiateOpenWebsite = (site: Website) => {
+    setOpenWebsiteModalSite(site);
+    setSelectedExpiry('30m');
+  };
+
+  // Confirm Open Website with selected duration via backend API
+  const handleConfirmOpenWebsite = async () => {
+    if (!openWebsiteModalSite) return;
+    try {
+      setIsGeneratingLink(true);
+      const res = await demoLinkService.generateDemoLinkViaApi({
+        websiteId: openWebsiteModalSite.id,
+        expiry: selectedExpiry
+      });
+
+      if (res.demoUrl) {
+        window.open(res.demoUrl, '_blank');
+        toast.success('Secure demo URL generated & website opened');
+      }
+      setOpenWebsiteModalSite(null);
+    } catch (err: any) {
+      console.error('Error generating demo link:', err);
+      toast.error(err.message || 'Failed to generate demo link');
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  // Initiate Toggle Protection Modal
+  const handleInitiateToggleProtection = (site: Website) => {
+    setToggleConfirmSite(site);
+  };
+
+  // Confirm Toggle Protection
+  const handleConfirmToggleProtection = async () => {
+    if (!toggleConfirmSite) return;
     try {
       await toggleProtectionMutation.mutateAsync({
-        id: site.id,
-        isProtected: !site.is_protected,
+        id: toggleConfirmSite.id,
+        isProtected: !toggleConfirmSite.is_protected,
       });
+      setToggleConfirmSite(null);
     } catch {
-      // Errors are handled by toast in mutation
+      // Errors handled by toast mutation hooks
     }
   };
 
@@ -215,10 +263,10 @@ export const Websites: React.FC = () => {
         <div className="bg-white border border-border rounded-luxury overflow-hidden shadow-soft">
           {/* Desktop Table Headers */}
           <div className="hidden md:flex p-4 border-b border-border bg-background/30 text-[10px] font-bold text-secondary uppercase tracking-wider justify-between items-center">
-            <span className="w-[45%]">Website Detail</span>
-            <span className="w-[20%] text-center">Status</span>
-            <span className="w-[20%] text-center">Registered Date</span>
-            <span className="w-[15%] text-right pr-4">Actions</span>
+            <span className="w-[35%]">Website Detail</span>
+            <span className="w-[15%] text-center">Status</span>
+            <span className="w-[15%] text-center">Registered Date</span>
+            <span className="w-[35%] text-right pr-4">Actions</span>
           </div>
 
           {/* List/Rows */}
@@ -229,7 +277,7 @@ export const Websites: React.FC = () => {
                 className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-background/20 transition-all text-xs"
               >
                 {/* 1. Detail */}
-                <div className="flex items-center gap-3 md:w-[45%] min-w-0">
+                <div className="flex items-center gap-3 md:w-[35%] min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-primary/5 text-primary flex items-center justify-center border border-primary/10 shrink-0">
                     <Globe className="w-4 h-4" />
                   </div>
@@ -247,14 +295,15 @@ export const Websites: React.FC = () => {
                 </div>
 
                 {/* 2. Protection Toggle */}
-                <div className="flex md:justify-center items-center gap-2.5 md:w-[20%]">
+                <div className="flex md:justify-center items-center gap-2.5 md:w-[15%]">
                   <button
                     disabled={toggleProtectionMutation.isPending && toggleProtectionMutation.variables?.id === site.id}
-                    onClick={() => handleToggleProtection(site)}
+                    onClick={() => handleInitiateToggleProtection(site)}
+                    title="Click to toggle protection state"
                     className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border transition-all cursor-pointer font-bold text-[10px] disabled:opacity-50 ${
                       site.is_protected 
-                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                        : 'bg-secondary/5 text-secondary border-border'
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:border-emerald-300' 
+                        : 'bg-secondary/5 text-secondary border-border hover:border-secondary/30'
                     }`}
                   >
                     {toggleProtectionMutation.isPending && toggleProtectionMutation.variables?.id === site.id ? (
@@ -267,15 +316,24 @@ export const Websites: React.FC = () => {
                 </div>
 
                 {/* 3. Date */}
-                <div className="flex md:justify-center text-secondary md:w-[20%] font-medium">
+                <div className="flex md:justify-center text-secondary md:w-[15%] font-medium">
                   {new Date(site.created_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}
                 </div>
 
                 {/* 4. Action buttons */}
-                <div className="flex justify-end gap-1.5 md:w-[15%] pr-2">
+                <div className="flex items-center justify-end gap-1.5 md:w-[35%] pr-2">
+                  <button
+                    onClick={() => handleInitiateOpenWebsite(site)}
+                    title="Select duration & open website via backend demo token"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-xl bg-black text-white hover:bg-black/90 active:scale-[0.98] transition-all cursor-pointer shadow-luxury"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-primary" />
+                    <span>Open Website</span>
+                  </button>
                   <button 
                     disabled={deleteWebsiteMutation.isPending && deleteWebsiteMutation.variables === site.id}
                     onClick={() => handleOpenEdit(site)}
+                    title="Edit website details"
                     className="p-2 text-secondary hover:text-black rounded-lg border border-border/80 transition-all cursor-pointer bg-white disabled:opacity-50"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
@@ -283,6 +341,7 @@ export const Websites: React.FC = () => {
                   <button 
                     disabled={deleteWebsiteMutation.isPending && deleteWebsiteMutation.variables === site.id}
                     onClick={() => handleDelete(site.id)}
+                    title="Delete website"
                     className="p-2 text-secondary hover:text-red-500 rounded-lg border border-border/80 transition-all cursor-pointer bg-white disabled:opacity-50"
                   >
                     {deleteWebsiteMutation.isPending && deleteWebsiteMutation.variables === site.id ? (
@@ -298,6 +357,170 @@ export const Websites: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 1. Open Website Duration Selection Modal */}
+      <AnimatePresence>
+        {openWebsiteModalSite && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isGeneratingLink && setOpenWebsiteModalSite(null)}
+              className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 select-none"
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-5"
+              >
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-black">Select Demo Access Duration</h3>
+                      <p className="text-[10px] text-secondary">{openWebsiteModalSite.name}</p>
+                    </div>
+                  </div>
+                  <button
+                    disabled={isGeneratingLink}
+                    onClick={() => setOpenWebsiteModalSite(null)}
+                    className="p-1 rounded-lg border border-border text-secondary hover:bg-black/5"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-secondary block">
+                    Temporary Token Validity Period
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: '30 Minutes', value: '30m' },
+                      { label: '1 Hour', value: '1h' },
+                      { label: '6 Hours', value: '6h' },
+                      { label: '12 Hours', value: '12h' },
+                      { label: '24 Hours', value: '24h' },
+                      { label: '3 Days', value: '3d' },
+                      { label: '7 Days', value: '7d' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setSelectedExpiry(opt.value)}
+                        className={`p-3 rounded-xl border text-xs font-semibold text-left transition-all cursor-pointer ${
+                          selectedExpiry === opt.value
+                            ? 'border-primary bg-primary/5 text-black shadow-sm'
+                            : 'border-border bg-background/50 text-secondary hover:border-black/30'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-border">
+                  <button
+                    type="button"
+                    disabled={isGeneratingLink}
+                    onClick={() => setOpenWebsiteModalSite(null)}
+                    className="flex-1 py-2.5 border border-border text-xs font-semibold text-secondary rounded-xl hover:bg-black/5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isGeneratingLink}
+                    onClick={handleConfirmOpenWebsite}
+                    className="flex-1 py-2.5 bg-black text-white text-xs font-semibold rounded-xl hover:bg-black/90 transition-all flex items-center justify-center gap-2 shadow-luxury"
+                  >
+                    {isGeneratingLink ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ExternalLink className="w-3.5 h-3.5 text-primary" />
+                        <span>Generate & Open</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 2. Protection Toggle Confirmation Modal */}
+      <AnimatePresence>
+        {toggleConfirmSite && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !toggleProtectionMutation.isPending && setToggleConfirmSite(null)}
+              className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 select-none"
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200/50 flex items-center justify-center mx-auto">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-bold text-black">
+                    {toggleConfirmSite.is_protected ? 'Disable Website Protection' : 'Enable Website Protection'}
+                  </h3>
+                  <p className="text-xs text-secondary mt-1.5 leading-relaxed">
+                    {toggleConfirmSite.is_protected
+                      ? 'This website will become publicly accessible.'
+                      : 'Visitors will require a valid demo link to access this website.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    disabled={toggleProtectionMutation.isPending}
+                    onClick={() => setToggleConfirmSite(null)}
+                    className="flex-1 py-2.5 border border-border text-xs font-semibold text-secondary rounded-xl hover:bg-black/5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={toggleProtectionMutation.isPending}
+                    onClick={handleConfirmToggleProtection}
+                    className={`flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-luxury text-white ${
+                      toggleConfirmSite.is_protected ? 'bg-red-600 hover:bg-red-700' : 'bg-black hover:bg-black/90'
+                    }`}
+                  >
+                    {toggleProtectionMutation.isPending ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <span>{toggleConfirmSite.is_protected ? 'Disable Protection' : 'Enable Protection'}</span>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Slide-over Right Panel Drawer */}
       <AnimatePresence>
@@ -412,9 +635,6 @@ export const Websites: React.FC = () => {
                       <pre className="bg-black text-white p-3 rounded-lg text-[9px] font-mono overflow-x-auto select-all leading-normal">
                         {`<script src="${window.location.origin}/wizztech-protect.js"></script>`}
                       </pre>
-                      <div className="p-3 bg-amber-50/50 border border-amber-100/50 rounded-lg text-[9px] text-amber-800 leading-normal">
-                        <strong>Netlify Routing:</strong> To prevent "Page Not Found" 404s on clean <code>/demo/TOKEN</code> URLs, place a <code>_redirects</code> file in your deploy folder with: <code>/* /index.html 200</code>.
-                      </div>
                     </div>
                   )}
                 </div>
