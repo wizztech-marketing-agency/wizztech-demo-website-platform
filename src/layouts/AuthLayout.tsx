@@ -27,7 +27,7 @@ export const AuthLayout: React.FC = () => {
       {/* Footer Branding */}
       <div className="mt-8 text-center z-10">
         <p className="text-[11px] font-medium tracking-widest uppercase text-secondary/60 flex items-center justify-center gap-1.5">
-          <ShieldCheck className="w-3.5 h-3.5 text-primary" /> WizzTech Demo Protection Platform
+          <ShieldCheck className="w-3.5 h-3.5 text-primary" /> WizzTech Website Protection Platform
         </p>
       </div>
     </div>

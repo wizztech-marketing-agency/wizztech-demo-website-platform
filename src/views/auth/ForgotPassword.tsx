@@ -92,7 +92,7 @@ export const ForgotPassword: React.FC = () => {
             to="/login"
             className="inline-flex items-center gap-2 text-xs font-bold text-primary hover:text-primary-hover transition-colors pt-2"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Console Login
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Login
           </Link>
         </motion.div>
       ) : (
@@ -153,7 +153,7 @@ export const ForgotPassword: React.FC = () => {
                 to="/login"
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-secondary hover:text-black transition-colors"
               >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Console Login
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Login
               </Link>
             </div>
           </form>
