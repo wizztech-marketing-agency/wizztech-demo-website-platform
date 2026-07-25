@@ -98,17 +98,15 @@ export const Login: React.FC = () => {
             Email Address
           </label>
           <div className="relative group">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/70 bg-white/90 shadow-sm">
-                <Mail className="w-4.5 h-4.5 text-black" strokeWidth={2.5} />
-              </span>
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none z-10 text-black">
+              <Mail className="w-5 h-5" strokeWidth={1.75} />
             </span>
             <input
               type="email"
               disabled={isSubmitting}
               placeholder="e.g., owner@wizztech.com"
               {...register('email')}
-              className={`w-full pl-12 pr-4 py-3 text-sm rounded-xl border bg-white/70 backdrop-blur-sm outline-none transition-all duration-200 
+              className={`w-full pl-11 pr-4 py-3 text-sm rounded-xl border bg-white/70 backdrop-blur-sm outline-none transition-all duration-200 
                 ${
                   errors.email
                     ? 'border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400/20'
@@ -136,17 +134,15 @@ export const Login: React.FC = () => {
             </Link>
           </div>
           <div className="relative group">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/70 bg-white/90 shadow-sm">
-                <Lock className="w-4.5 h-4.5 text-black" strokeWidth={2.5} />
-              </span>
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none z-10 text-black">
+              <Lock className="w-5 h-5" strokeWidth={1.75} />
             </span>
             <input
               type={showPassword ? 'text' : 'password'}
               disabled={isSubmitting}
               placeholder="••••••••••••"
               {...register('password')}
-              className={`w-full pl-12 pr-12 py-3 text-sm rounded-xl border bg-white/70 backdrop-blur-sm outline-none transition-all duration-200
+              className={`w-full pl-11 pr-11 py-3 text-sm rounded-xl border bg-white/70 backdrop-blur-sm outline-none transition-all duration-200
                 ${
                   errors.password
                     ? 'border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400/20'
@@ -158,15 +154,13 @@ export const Login: React.FC = () => {
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center transition-colors z-10"
+              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-black/70 hover:text-black transition-colors z-10"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/70 bg-white/90 shadow-sm">
-                {showPassword ? (
-                  <EyeOff className="w-4.5 h-4.5 text-black" strokeWidth={2.5} />
-                ) : (
-                  <Eye className="w-4.5 h-4.5 text-black" strokeWidth={2.5} />
-                )}
-              </span>
+              {showPassword ? (
+                <EyeOff className="w-5 h-5" strokeWidth={1.75} />
+              ) : (
+                <Eye className="w-5 h-5" strokeWidth={1.75} />
+              )}
             </button>
           </div>
           {errors.password && (
