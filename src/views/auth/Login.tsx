@@ -39,14 +39,14 @@ export const Login: React.FC = () => {
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmitting(true);
     setServerError(null);
-    
+
     // Slight artificial delay to showcase the luxury loading state
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     const result = await login(data.email, data.password);
-    
+
     setIsSubmitting(false);
-    
+
     if (result.success) {
       navigate('/dashboard');
     } else {
@@ -66,15 +66,17 @@ export const Login: React.FC = () => {
         <motion.div
           whileHover={{ scale: 1.02 }}
           transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-          className="mb-2 flex justify-center cursor-pointer"
+          className="mb-3 flex justify-center cursor-pointer"
           onClick={() => navigate('/login')}
         >
           <img src={wizzTechLogo} alt="WizzTech Logo" className="h-28 w-auto object-contain" />
         </motion.div>
-        
-        <h2 className="text-lg font-bold text-black tracking-tight text-center">Owner Console</h2>
-        <p className="text-xs text-secondary mt-0.5 tracking-normal text-center">
-          Access the central demo registry and security dashboard
+
+        <h2 className="text-2xl font-extrabold text-black tracking-tight text-center leading-tight">
+          Welcome Back
+        </h2>
+        <p className="text-sm text-secondary mt-1 tracking-normal text-center max-w-xs">
+          Sign in to continue to your dashboard
         </p>
       </div>
 
@@ -96,16 +98,22 @@ export const Login: React.FC = () => {
             Email Address
           </label>
           <div className="relative group">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center transition-colors">
-              <Mail className="w-5 h-5 text-black" strokeWidth={2.5} />
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/70 bg-white/90 shadow-sm">
+                <Mail className="w-4.5 h-4.5 text-black" strokeWidth={2.5} />
+              </span>
             </span>
             <input
               type="email"
               disabled={isSubmitting}
               placeholder="e.g., owner@wizztech.com"
               {...register('email')}
-              className={`w-full pl-10 pr-4 py-3 text-sm rounded-xl border bg-white/70 backdrop-blur-sm outline-none transition-all duration-200 
-                ${errors.email ? 'border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400/20' : 'border-border/80 focus:border-primary focus:ring-1 focus:ring-primary/20'}
+              className={`w-full pl-12 pr-4 py-3 text-sm rounded-xl border bg-white/70 backdrop-blur-sm outline-none transition-all duration-200 
+                ${
+                  errors.email
+                    ? 'border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400/20'
+                    : 'border-border/80 focus:border-primary focus:ring-1 focus:ring-primary/20'
+                }
                 text-black placeholder:text-secondary/40 font-medium`}
             />
           </div>
@@ -118,39 +126,47 @@ export const Login: React.FC = () => {
         <div className="space-y-1">
           <div className="flex justify-between items-center">
             <label className="text-[11px] font-bold tracking-wider uppercase text-secondary/80">
-              Security Key (Password)
+              Password
             </label>
             <Link
               to="/forgot-password"
               className="text-[11px] font-semibold text-primary hover:text-primary-hover transition-colors"
             >
-              Forgot key?
+              Forgot password?
             </Link>
           </div>
           <div className="relative group">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center transition-colors">
-              <Lock className="w-5 h-5 text-black" strokeWidth={2.5} />
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/70 bg-white/90 shadow-sm">
+                <Lock className="w-4.5 h-4.5 text-black" strokeWidth={2.5} />
+              </span>
             </span>
             <input
               type={showPassword ? 'text' : 'password'}
               disabled={isSubmitting}
               placeholder="••••••••••••"
               {...register('password')}
-              className={`w-full pl-10 pr-10 py-3 text-sm rounded-xl border bg-white/70 backdrop-blur-sm outline-none transition-all duration-200
-                ${errors.password ? 'border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400/20' : 'border-border/80 focus:border-primary focus:ring-1 focus:ring-primary/20'}
+              className={`w-full pl-12 pr-12 py-3 text-sm rounded-xl border bg-white/70 backdrop-blur-sm outline-none transition-all duration-200
+                ${
+                  errors.password
+                    ? 'border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400/20'
+                    : 'border-border/80 focus:border-primary focus:ring-1 focus:ring-primary/20'
+                }
                 text-black placeholder:text-secondary/40 font-medium`}
             />
             <button
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3.5 flex items-center transition-colors"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center transition-colors"
             >
-              {showPassword ? (
-                <EyeOff className="w-5 h-5 text-black" strokeWidth={2.5} />
-              ) : (
-                <Eye className="w-5 h-5 text-black" strokeWidth={2.5} />
-              )}
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/70 bg-white/90 shadow-sm">
+                {showPassword ? (
+                  <EyeOff className="w-4.5 h-4.5 text-black" strokeWidth={2.5} />
+                ) : (
+                  <Eye className="w-4.5 h-4.5 text-black" strokeWidth={2.5} />
+                )}
+              </span>
             </button>
           </div>
           {errors.password && (
@@ -186,7 +202,7 @@ export const Login: React.FC = () => {
             </>
           ) : (
             <>
-              <span>Authenticate</span>
+              <span>Sign In</span>
               <ArrowRight className="w-4 h-4 text-primary group-hover:translate-x-0.5 transition-transform" />
             </>
           )}
