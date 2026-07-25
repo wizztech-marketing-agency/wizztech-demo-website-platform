@@ -27,7 +27,7 @@ CREATE POLICY "Owners can manage their own websites"
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
 
--- Public can check website status (required for future client-side intercept check)
+-- Public can check website status (required for SDK validation)
 CREATE POLICY "Public can view website protection status"
     ON public.websites
     FOR SELECT
@@ -43,8 +43,11 @@ CREATE TABLE IF NOT EXISTS public.demo_links (
     expiry_at TIMESTAMPTZ NOT NULL,
     views_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_by UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE
+    created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL
 );
+
+-- NOTE: created_by is nullable to allow server-side (service role) inserts
+-- without a user session context.
 
 -- Optimize queries linking to websites
 CREATE INDEX IF NOT EXISTS idx_demo_links_website_id ON public.demo_links(website_id);
@@ -54,7 +57,8 @@ CREATE INDEX IF NOT EXISTS idx_demo_links_token ON public.demo_links(token);
 ALTER TABLE public.demo_links ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for Demo Links
--- Owner has full CRUD control
+
+-- Authenticated owners can manage their own demo links
 CREATE POLICY "Owners can manage their own demo links"
     ON public.demo_links
     FOR ALL
@@ -62,7 +66,16 @@ CREATE POLICY "Owners can manage their own demo links"
     USING (auth.uid() = created_by)
     WITH CHECK (auth.uid() = created_by);
 
--- Public can read demo links (required to verify if a token is valid and not expired)
+-- Public (anon/server-side functions) can INSERT new demo links
+-- This is required for the generate-demo-link server function which runs
+-- without an authenticated session using the anon key.
+CREATE POLICY "Backend can create demo links"
+    ON public.demo_links
+    FOR INSERT
+    TO anon, authenticated
+    WITH CHECK (true);
+
+-- Public can read demo links (required to verify if a token is valid)
 CREATE POLICY "Public can read demo links for verification"
     ON public.demo_links
     FOR SELECT

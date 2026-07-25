@@ -7,7 +7,7 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Headers': 
+  'Access-Control-Allow-Headers':
     'Content-Type, Authorization, X-Requested-With, x-wizztech-sdk-key, x-wizztech-sdk-version',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Max-Age': '86400',
@@ -43,19 +43,6 @@ function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token.trim()).digest('hex');
 }
 
-// Development flag checked logging
-function devLog(...args: any[]) {
-  if (process.env.NODE_ENV === 'development' || process.env.WIZZTECH_DEV_LOGS === 'true') {
-    console.log(...args);
-  }
-}
-
-function devWarn(...args: any[]) {
-  if (process.env.NODE_ENV === 'development' || process.env.WIZZTECH_DEV_LOGS === 'true') {
-    console.warn(...args);
-  }
-}
-
 export const handler: Handler = async (event: HandlerEvent) => {
   // Always handle OPTIONS preflight request for CORS
   if (event.httpMethod === 'OPTIONS') {
@@ -68,7 +55,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
   // Ensure request method is POST
   if (event.httpMethod !== 'POST') {
-    devWarn(`[Validate API] Rejected ${event.httpMethod} request (Only POST allowed)`);
+    console.warn(`[Validate] Rejected ${event.httpMethod} request (only POST allowed)`);
     return jsonResponse(405, {
       status: 'error',
       message: 'Method Not Allowed. Use POST.',
@@ -84,7 +71,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
       body = JSON.parse(event.body);
     }
   } catch (err) {
-    devWarn('[Validate API] Failed to parse JSON request body:', err);
+    console.warn('[Validate] Failed to parse JSON request body:', err);
     return jsonResponse(400, {
       status: 'error',
       message: 'Invalid JSON payload',
@@ -96,7 +83,17 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
   const { websiteUrl, origin: bodyOrigin, demoToken, incrementView } = body;
 
-  devLog('[Validate API] Step 1: Validation Request Received. Body:', { websiteUrl, origin: bodyOrigin, demoToken, incrementView });
+  // ─────────────────────────────────────────────────────────────
+  // DEBUG: Log every incoming field so we can trace the full flow
+  // ─────────────────────────────────────────────────────────────
+  console.log('[Validate] ── INCOMING REQUEST ──────────────────────────');
+  console.log('[Validate] websiteUrl   :', websiteUrl);
+  console.log('[Validate] bodyOrigin   :', bodyOrigin);
+  console.log('[Validate] demoToken    :', demoToken);
+  console.log('[Validate] incrementView:', incrementView);
+  console.log('[Validate] httpMethod   :', event.httpMethod);
+  console.log('[Validate] headers.origin:', event.headers['origin']);
+  console.log('[Validate] ─────────────────────────────────────────────');
 
   // STEP 1: SDK Authentication Header Verification
   const sdkKeyHeader = event.headers['x-wizztech-sdk-key'] || event.headers['X-WizzTech-SDK-Key'];
@@ -104,7 +101,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
   if (configuredSdkKey) {
     if (!sdkKeyHeader || sdkKeyHeader !== configuredSdkKey) {
-      devWarn('[Validate API] Step 1 Failed: Invalid or missing x-wizztech-sdk-key header');
+      console.warn('[Validate] Step 1 FAILED: Invalid or missing x-wizztech-sdk-key header');
       return jsonResponse(200, {
         status: 'blocked',
         reason: 'invalid_sdk_key',
@@ -114,13 +111,13 @@ export const handler: Handler = async (event: HandlerEvent) => {
         protectionEnabled: true
       });
     }
-    devLog('[Validate API] Step 1 Passed: SDK Key Valid');
+    console.log('[Validate] Step 1 PASSED: SDK Key valid');
   } else {
-    devLog('[Validate API] Step 1 Passed: SDK Key check passed (Key not enforced yet)');
+    console.log('[Validate] Step 1 PASSED: No SDK key configured, skipping check');
   }
 
   if (!websiteUrl) {
-    devWarn('[Validate API] Missing websiteUrl parameter');
+    console.warn('[Validate] Missing websiteUrl parameter');
     return jsonResponse(400, {
       status: 'not_found',
       message: 'Missing websiteUrl parameter',
@@ -130,12 +127,20 @@ export const handler: Handler = async (event: HandlerEvent) => {
     });
   }
 
-  // Retrieve Supabase environment variables - Prefer service role key for backend access
+  // Retrieve Supabase environment variables
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    '';
+
+  console.log('[Validate] Supabase URL present   :', !!supabaseUrl);
+  console.log('[Validate] Supabase KEY present   :', !!supabaseKey);
+  console.log('[Validate] Key type (first 20 chars):', supabaseKey.substring(0, 20));
 
   if (!supabaseUrl || !supabaseKey) {
-    devWarn('[Validate API] Supabase environment variables missing');
+    console.error('[Validate] Supabase environment variables missing');
     return jsonResponse(500, {
       status: 'error',
       message: 'Server configuration error: missing database credentials',
@@ -147,16 +152,16 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // STEP 2: Website Location in Supabase
+  // STEP 2: Website lookup in Supabase
   const requestHost = normalizeHost(websiteUrl);
-  devLog(`[Validate API] Looking up website for URL '${websiteUrl}' (Host: '${requestHost}')`);
+  console.log(`[Validate] Step 2: Looking up website for URL='${websiteUrl}' (normalizedHost='${requestHost}')`);
 
   const { data: websites, error: websiteError } = await supabase
     .from('websites')
     .select('*');
 
   if (websiteError) {
-    devWarn('[Validate API] Database error querying websites:', websiteError);
+    console.error('[Validate] Step 2 FAILED: Database error querying websites:', JSON.stringify(websiteError));
     return jsonResponse(500, {
       status: 'error',
       message: 'Database query failed',
@@ -166,17 +171,25 @@ export const handler: Handler = async (event: HandlerEvent) => {
     });
   }
 
-  const matchedWebsite = (websites || []).find((w) => {
-    if (!w.url) return false;
-    if (w.url.trim().toLowerCase() === websiteUrl.trim().toLowerCase()) return true;
-    const dbHost = normalizeHost(w.url);
-    return dbHost === requestHost || requestHost.endsWith('.' + dbHost) || dbHost.endsWith('.' + requestHost);
+  console.log(`[Validate] Step 2: Total websites in database: ${(websites || []).length}`);
+  (websites || []).forEach((w, i) => {
+    console.log(`[Validate]   [${i}] id=${w.id} name='${w.name}' url='${w.url}' normalizedHost='${normalizeHost(w.url)}' is_protected=${w.is_protected}`);
   });
 
-  // Bug 1: Unregistered Websites Must NOT Be Blocked -> Return Allowed
+  const matchedWebsite = (websites || []).find((w) => {
+    if (!w.url) return false;
+    // Exact match (case-insensitive)
+    if (w.url.trim().toLowerCase() === websiteUrl.trim().toLowerCase()) return true;
+    // Hostname match
+    const dbHost = normalizeHost(w.url);
+    const matches = dbHost === requestHost || requestHost.endsWith('.' + dbHost) || dbHost.endsWith('.' + requestHost);
+    console.log(`[Validate]   Comparing dbHost='${dbHost}' vs requestHost='${requestHost}' → ${matches}`);
+    return matches;
+  });
+
+  // Unregistered websites must NOT be blocked
   if (!matchedWebsite) {
-    devLog(`[Validate API] Step 2: Website Found? FALSE (Website Not Found: ${websiteUrl})`);
-    devLog('[Validate API] Returning Allowed (Website not registered)');
+    console.log(`[Validate] Step 2: No website matched for '${websiteUrl}' → returning allowed (not registered)`);
     return jsonResponse(200, {
       status: 'allowed',
       message: 'Website is not registered in WizzTech Platform',
@@ -186,14 +199,14 @@ export const handler: Handler = async (event: HandlerEvent) => {
     });
   }
 
-  devLog(`[Validate API] Step 2: Website Found? TRUE (ID: ${matchedWebsite.id}, Name: '${matchedWebsite.name}', Protected: ${matchedWebsite.is_protected})`);
+  console.log(`[Validate] Step 2 PASSED: Matched website id=${matchedWebsite.id} name='${matchedWebsite.name}' is_protected=${matchedWebsite.is_protected}`);
 
-  // Bug 2: Protection OFF -> Move check before origin check so unregistered origins aren't blocked when protection is OFF
+  // STEP 3: Protection status check
   const isProtected = matchedWebsite.is_protected;
-  devLog(`[Validate API] Step 3: Protection Enabled? ${isProtected ? 'TRUE' : 'FALSE'}`);
+  console.log(`[Validate] Step 3: Protection enabled? ${isProtected}`);
 
   if (!isProtected) {
-    devLog(`[Validate API] Returning Allowed (Protection disabled for ${matchedWebsite.url})`);
+    console.log('[Validate] Step 3: Protection OFF → returning allowed');
     return jsonResponse(200, {
       status: 'allowed',
       message: 'Protection is disabled for this website',
@@ -203,15 +216,27 @@ export const handler: Handler = async (event: HandlerEvent) => {
     });
   }
 
-  // STEP 4: Origin Verification (only enforced if website is registered and protection is ON)
+  // STEP 4: Origin Verification (only when protection is ON)
   const requestOrigin = bodyOrigin || event.headers['origin'] || event.headers['referer'] || '';
+  console.log(`[Validate] Step 4: requestOrigin='${requestOrigin}'`);
+
   if (requestOrigin) {
     const originHost = normalizeHost(requestOrigin);
     const registeredHost = normalizeHost(matchedWebsite.url);
+    const isDevOrigin = originHost === 'localhost' || originHost === '127.0.0.1' || originHost.startsWith('localhost:');
 
-    if (originHost && registeredHost && originHost !== registeredHost && !originHost.endsWith('.' + registeredHost) && !registeredHost.endsWith('.' + originHost)) {
-      devWarn(`[Validate API] Step 4 Failed: Origin Mismatch! Incoming origin '${originHost}' does not match registered domain '${registeredHost}'`);
-      devLog('[Validate API] Returning Blocked (Origin mismatch)');
+    console.log(`[Validate] Step 4: originHost='${originHost}' registeredHost='${registeredHost}' isDevOrigin=${isDevOrigin}`);
+
+    if (isDevOrigin) {
+      console.log('[Validate] Step 4 PASSED: Development origin allowed for testing');
+    } else if (
+      originHost &&
+      registeredHost &&
+      originHost !== registeredHost &&
+      !originHost.endsWith('.' + registeredHost) &&
+      !registeredHost.endsWith('.' + originHost)
+    ) {
+      console.warn(`[Validate] Step 4 FAILED: Origin mismatch! '${originHost}' !== '${registeredHost}'`);
       return jsonResponse(200, {
         status: 'blocked',
         reason: 'origin_mismatch',
@@ -220,18 +245,19 @@ export const handler: Handler = async (event: HandlerEvent) => {
         expiresAt: null,
         protectionEnabled: true
       });
+    } else {
+      console.log(`[Validate] Step 4 PASSED: Origin '${originHost}' matches registered host '${registeredHost}'`);
     }
-    devLog(`[Validate API] Step 4 Passed: Origin Verified ('${originHost}' matches '${registeredHost}')`);
   } else {
-    devLog('[Validate API] Step 4 Passed: Origin check skipped (No origin provided)');
+    console.log('[Validate] Step 4 PASSED: No origin header provided, skipping check');
   }
 
-  // STEP 5: Demo Token Received?
+  // STEP 5: Demo Token check
   const hasToken = !!(demoToken && typeof demoToken === 'string' && demoToken.trim());
-  devLog(`[Validate API] Step 5: Demo Token Received? ${hasToken ? 'TRUE' : 'FALSE'}`);
+  console.log(`[Validate] Step 5: Demo token received? ${hasToken} (value: '${demoToken}')`);
 
   if (!hasToken) {
-    devLog('[Validate API] Step 5 Failed: No Demo Token provided -> Returning Blocked');
+    console.log('[Validate] Step 5: No token → returning blocked (protection ON, no token)');
     return jsonResponse(200, {
       status: 'blocked',
       reason: 'protected',
@@ -244,17 +270,25 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
   const cleanToken = demoToken!.trim();
   const tokenHash = hashToken(cleanToken);
-  devLog(`[Validate API] Generated Token Hash: ${tokenHash}`);
+  console.log(`[Validate] Step 6: cleanToken='${cleanToken}' (len=${cleanToken.length})`);
+  console.log(`[Validate] Step 6: tokenHash='${tokenHash}' (len=${tokenHash.length})`);
 
-  // Search Supabase for hashed token (and fallback to raw token for backwards compatibility)
+  // ─────────────────────────────────────────────────────────────────────────────
+  // FIX: Use .in() instead of fragile .or() for dual-token lookup.
+  // We search for BOTH the SHA-256 hash (new tokens) AND the raw token
+  // (backward-compatibility for any old un-hashed tokens).
+  // ─────────────────────────────────────────────────────────────────────────────
+  const tokensToSearch = Array.from(new Set([tokenHash, cleanToken])); // dedup if same
+  console.log(`[Validate] Step 6: Searching demo_links for website_id=${matchedWebsite.id} with tokens:`, tokensToSearch);
+
   const { data: demoLinks, error: tokenError } = await supabase
     .from('demo_links')
     .select('*')
     .eq('website_id', matchedWebsite.id)
-    .or(`token.eq.${tokenHash},token.eq.${cleanToken}`);
+    .in('token', tokensToSearch);
 
   if (tokenError) {
-    devWarn('[Validate API] Database error querying demo_links:', tokenError);
+    console.error('[Validate] Step 6 FAILED: Database error querying demo_links:', JSON.stringify(tokenError));
     return jsonResponse(500, {
       status: 'error',
       message: 'Database query error during token validation',
@@ -264,11 +298,26 @@ export const handler: Handler = async (event: HandlerEvent) => {
     });
   }
 
-  const activeLink = demoLinks && demoLinks.length > 0 ? demoLinks[0] : null;
-  devLog(`[Validate API] Step 6: Database Match? ${activeLink ? 'TRUE' : 'FALSE'}`);
+  console.log(`[Validate] Step 6: demo_links query returned ${(demoLinks || []).length} rows`);
+  (demoLinks || []).forEach((dl, i) => {
+    console.log(`[Validate]   [${i}] id=${dl.id} token='${dl.token.substring(0, 20)}...' expiry_at=${dl.expiry_at}`);
+  });
+
+  const now = new Date();
+
+  // Sort matching links so unexpired active links are prioritized over expired ones
+  const sortedLinks = (demoLinks || []).sort((a, b) => {
+    const aExpired = new Date(a.expiry_at) <= now;
+    const bExpired = new Date(b.expiry_at) <= now;
+    if (!aExpired && bExpired) return -1;
+    if (aExpired && !bExpired) return 1;
+    return new Date(b.expiry_at).getTime() - new Date(a.expiry_at).getTime();
+  });
+
+  const activeLink = sortedLinks.length > 0 ? sortedLinks[0] : null;
 
   if (!activeLink) {
-    devLog('[Validate API] Returning Invalid Token');
+    console.log('[Validate] Step 6: No matching token found → returning invalid_token');
     return jsonResponse(200, {
       status: 'invalid_token',
       message: 'Demo token is invalid for this website',
@@ -278,24 +327,22 @@ export const handler: Handler = async (event: HandlerEvent) => {
     });
   }
 
+  console.log(`[Validate] Step 6 PASSED: Selected demo link id=${activeLink.id}`);
+
   // STEP 7: Expiry Check
-  const now = new Date();
   const expiryDate = new Date(activeLink.expiry_at);
   const isExpired = expiryDate <= now;
-  devLog(`[Validate API] Step 7: Expiry Check? ${isExpired ? 'EXPIRED' : 'ACTIVE'} (Expires: ${activeLink.expiry_at}, Now: ${now.toISOString()})`);
+  console.log(`[Validate] Step 7: now=${now.toISOString()} expiry=${activeLink.expiry_at} isExpired=${isExpired}`);
 
   if (isExpired) {
-    // 1. Expired demo tokens must automatically become inactive/deleted in Supabase
-    devLog('[Validate API] Deleting expired token from database to inactivate it');
-    const { error: deleteError } = await supabase
-      .from('demo_links')
-      .delete()
-      .eq('id', activeLink.id);
-    if (deleteError) {
-      devWarn('[Validate API] Failed to delete/inactivate expired token:', deleteError);
-    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // FIX (Issue #8): Do NOT delete expired tokens.
+    // Keep them in the database for history & auditing.
+    // Only mark is_active = false if the column exists.
+    // Since current schema has no is_active column, we simply DO NOT delete.
+    // ─────────────────────────────────────────────────────────────────────────
+    console.log('[Validate] Step 7: Token is EXPIRED. Keeping in DB (no delete). Returning demo_expired.');
 
-    devLog('[Validate API] Returning Demo Expired');
     return jsonResponse(200, {
       status: 'demo_expired',
       message: 'Demo token has expired',
@@ -305,19 +352,23 @@ export const handler: Handler = async (event: HandlerEvent) => {
     });
   }
 
-  // 2. Demo link views should only increment once per browser session
+  console.log('[Validate] Step 7 PASSED: Token is active and not expired');
+
+  // STEP 8: Increment view count (once per session — SDK handles deduplication)
   if (incrementView) {
-    devLog('[Validate API] Incrementing view count in Supabase');
+    console.log('[Validate] Step 8: Incrementing view count');
     const { error: updateError } = await supabase
       .from('demo_links')
-      .update({ views_count: activeLink.views_count + 1 })
+      .update({ views_count: (activeLink.views_count || 0) + 1 })
       .eq('id', activeLink.id);
     if (updateError) {
-      devWarn('[Validate API] Failed to increment views_count:', updateError);
+      console.warn('[Validate] Step 8: Failed to increment views_count:', JSON.stringify(updateError));
+    } else {
+      console.log('[Validate] Step 8: views_count incremented successfully');
     }
   }
 
-  devLog('[Validate API] Returning Allowed');
+  console.log('[Validate] ── RESULT: ALLOWED ────────────────────────────');
   return jsonResponse(200, {
     status: 'allowed',
     message: 'Valid demo token',

@@ -5,6 +5,13 @@
 [functions]
   directory = "netlify/functions"
 
+# Demo token URLs: serve the client mock page so the protection SDK runs
+[[redirects]]
+  from = "/demo/*"
+  to = "/client-mock.html"
+  status = 200
+
+# SPA fallback: all other paths go to the React dashboard
 [[redirects]]
   from = "/*"
   to = "/index.html"

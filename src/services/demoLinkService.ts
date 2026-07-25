@@ -11,22 +11,43 @@ export interface GenerateDemoLinkResponse {
 export const demoLinkService = {
   /**
    * Calls the dedicated backend endpoint to generate a secure, SHA-256 hashed demo link.
+   * Passes the current user's auth token so the Netlify function can INSERT with proper
+   * RLS authentication (the "authenticated" INSERT policy applies).
    */
   async generateDemoLinkViaApi(params: { websiteId: string; expiry: string }): Promise<GenerateDemoLinkResponse> {
+    // Get the current user session so we can pass the access token to the server function
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token || null;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Pass the auth token in the Authorization header so the Netlify function
+    // can create a Supabase client authenticated as this user
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
+    console.log('[demoLinkService] generateDemoLinkViaApi called');
+    console.log('[demoLinkService] Has auth token:', !!accessToken);
+    console.log('[demoLinkService] Params:', params);
+
     const response = await fetch('/.netlify/functions/generate-demo-link', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers,
       body: JSON.stringify(params)
     });
 
+    const responseData = await response.json().catch(() => ({}));
+    console.log('[demoLinkService] Response status:', response.status);
+    console.log('[demoLinkService] Response data:', responseData);
+
     if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.message || 'Failed to generate secure demo link via server API');
+      throw new Error(responseData.message || responseData.detail || 'Failed to generate secure demo link via server API');
     }
 
-    return response.json();
+    return responseData;
   },
 
   /**

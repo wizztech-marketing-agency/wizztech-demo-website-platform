@@ -621,19 +621,7 @@ export const Websites: React.FC = () => {
                     </label>
                   </div>
 
-                  {editingWebsite && (
-                    <div className="mt-5 p-4 rounded-xl border border-border bg-background/20 space-y-2.5">
-                      <p className="text-[11px] font-bold text-black uppercase tracking-wider">
-                        Integration Instructions
-                      </p>
-                      <p className="text-[10px] text-secondary leading-normal">
-                        Copy and paste the following script tag into the <code>&lt;head&gt;</code> of your website:
-                      </p>
-                      <pre className="bg-black text-white p-3 rounded-lg text-[9px] font-mono overflow-x-auto select-all leading-normal">
-                        {`<script src="${window.location.origin}/wizztech-protect.js"></script>`}
-                      </pre>
-                    </div>
-                  )}
+
                 </div>
 
                 {/* Save Button */}

@@ -134,17 +134,17 @@ export const DemoLinks: React.FC = () => {
     }
   };
 
-  // Build full redirect link: clean URL path structure with file fallback
+  // Build full redirect link: always uses query parameters (?wz_token=TOKEN) to avoid server routing configuration requirements.
   const buildDemoUrl = (siteUrl: string, token: string) => {
-    const cleanUrl = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : siteUrl;
-    
-    // Check if the URL contains a file name extension (e.g. ends with .html, .php)
-    const isFile = /\.[a-zA-Z0-9]+$/.test(cleanUrl.split('/').pop() || '');
-    
-    if (isFile) {
-      return `${cleanUrl}?wz_token=${token}`;
+    try {
+      const parsed = new URL(siteUrl);
+      parsed.searchParams.set('wz_token', token);
+      return parsed.toString();
+    } catch {
+      // Fallback if URL parsing fails
+      const separator = siteUrl.includes('?') ? '&' : '?';
+      return `${siteUrl}${separator}wz_token=${token}`;
     }
-    return `${cleanUrl}/demo/${token}`;
   };
 
   // Copy helper
