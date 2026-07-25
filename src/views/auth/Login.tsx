@@ -98,7 +98,7 @@ export const Login: React.FC = () => {
             Email Address
           </label>
           <div className="relative group">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/70 bg-white/90 shadow-sm">
                 <Mail className="w-4.5 h-4.5 text-black" strokeWidth={2.5} />
               </span>
@@ -136,7 +136,7 @@ export const Login: React.FC = () => {
             </Link>
           </div>
           <div className="relative group">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/70 bg-white/90 shadow-sm">
                 <Lock className="w-4.5 h-4.5 text-black" strokeWidth={2.5} />
               </span>
@@ -158,7 +158,7 @@ export const Login: React.FC = () => {
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center transition-colors"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center transition-colors z-10"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/70 bg-white/90 shadow-sm">
                 {showPassword ? (

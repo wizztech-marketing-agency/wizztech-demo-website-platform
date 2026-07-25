@@ -113,7 +113,7 @@ export const ForgotPassword: React.FC = () => {
                 Verify Registered Email
               </label>
               <div className="relative group">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center transition-colors">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center transition-colors pointer-events-none z-10">
                   <Mail className="w-5 h-5 text-black" strokeWidth={2.5} />
                 </span>
                 <input
