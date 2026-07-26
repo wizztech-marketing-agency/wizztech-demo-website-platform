@@ -10,6 +10,8 @@ export const useDemoLinks = () => {
   return useQuery<DemoLink[], Error>({
     queryKey: ['demo_links'],
     queryFn: demoLinkService.getDemoLinks,
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
   });
 };
 

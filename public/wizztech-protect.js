@@ -13,9 +13,8 @@
   // DEBUG MODE: Set to false once everything is verified working
   var DEBUG_MODE = true;
 
-  // SESSION CACHE: Set to false to force every page load to hit the API
-  // Re-enable (true) once the full flow is verified working end-to-end
-  var SESSION_CACHE_ENABLED = false;
+  // SESSION CACHE: Enabled to persist user access across refreshes and track view count per session
+  var SESSION_CACHE_ENABLED = true;
 
   // Determine platform base URL dynamically from the script source
   var platformBaseUrl = 'http://localhost:8888';

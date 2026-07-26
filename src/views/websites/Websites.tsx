@@ -19,6 +19,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { 
   useWebsites, 
   useCreateWebsite, 
@@ -38,6 +39,7 @@ const websiteSchema = z.object({
 type WebsiteFormValues = z.infer<typeof websiteSchema>;
 
 export const Websites: React.FC = () => {
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   
   // Drawer states
@@ -150,6 +152,8 @@ export const Websites: React.FC = () => {
         websiteId: openWebsiteModalSite.id,
         expiry: selectedExpiry
       });
+
+      await queryClient.invalidateQueries({ queryKey: ['demo_links'] });
 
       if (res.demoUrl) {
         window.open(res.demoUrl, '_blank');

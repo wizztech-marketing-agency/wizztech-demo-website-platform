@@ -89,3 +89,13 @@ CREATE POLICY "Public can increment views count on open"
     TO anon, authenticated
     USING (true)
     WITH CHECK (true);
+
+-- Atomic stored procedure to increment demo link views count
+CREATE OR REPLACE FUNCTION public.increment_demo_link_views(link_id UUID)
+RETURNS void AS $$
+BEGIN
+  UPDATE public.demo_links
+  SET views_count = views_count + 1
+  WHERE id = link_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

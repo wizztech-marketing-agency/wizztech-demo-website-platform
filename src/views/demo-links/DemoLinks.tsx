@@ -16,11 +16,14 @@ import QRCodeComponent from 'react-qr-code';
 // Handle Vite CommonJS/ESM default import mismatch defensively
 const QRCode = (QRCodeComponent as any).default || QRCodeComponent;
 import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { useWebsites } from '../../hooks/useWebsites';
 import { useDemoLinks, useCreateDemoLink, useDeleteDemoLink } from '../../hooks/useDemoLinks';
+import { demoLinkService } from '../../services/demoLinkService';
 import type { DemoLink } from '../../types/demoLink';
 
 export const DemoLinks: React.FC = () => {
+  const queryClient = useQueryClient();
   // Database website state from React Query
   const { data: websites = [], isLoading: websitesLoading } = useWebsites();
 
@@ -92,30 +95,44 @@ export const DemoLinks: React.FC = () => {
     if (!selectedWebsiteId) return;
 
     try {
-      // Calculate Expiry Date
-      let expiryDate: Date;
+      let expiryParam: string | number = expiryPreset;
       if (expiryPreset === 'custom') {
         if (!customExpiryDate) {
           toast.error('Please choose a custom expiration date');
           return;
         }
-        expiryDate = new Date(customExpiryDate);
-      } else {
-        const seconds = parseInt(expiryPreset, 10);
-        expiryDate = new Date(Date.now() + seconds * 1000);
+        const diffSeconds = Math.max(60, Math.floor((new Date(customExpiryDate).getTime() - Date.now()) / 1000));
+        expiryParam = diffSeconds;
       }
 
-      const tokenValue = generateRandomToken();
+      try {
+        await demoLinkService.generateDemoLinkViaApi({
+          websiteId: selectedWebsiteId,
+          expiry: expiryParam
+        });
+        await queryClient.invalidateQueries({ queryKey: ['demo_links'] });
+        toast.success('Demo access link generated successfully');
+      } catch (apiErr) {
+        console.warn('Backend function unavailable, creating demo link directly:', apiErr);
+        let expiryDate: Date;
+        if (expiryPreset === 'custom') {
+          expiryDate = new Date(customExpiryDate);
+        } else {
+          const seconds = parseInt(expiryPreset, 10);
+          expiryDate = new Date(Date.now() + seconds * 1000);
+        }
 
-      const newLink = await createDemoLinkMutation.mutateAsync({
-        website_id: selectedWebsiteId,
-        token: tokenValue,
-        expiry_at: expiryDate.toISOString(),
-      });
+        const tokenValue = generateRandomToken();
+        const newLink = await createDemoLinkMutation.mutateAsync({
+          website_id: selectedWebsiteId,
+          token: tokenValue,
+          expiry_at: expiryDate.toISOString(),
+        });
 
-      setSelectedLinkForQR(newLink);
+        setSelectedLinkForQR(newLink);
+      }
     } catch {
-      // Error handling is managed by toast inside the mutation hook
+      // Error handling managed by toast
     }
   };
 
