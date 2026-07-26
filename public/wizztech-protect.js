@@ -75,6 +75,94 @@
 
   // ── API Call ───────────────────────────────────────────────────────────────
 
+  function callSupabaseDirectValidation(websiteUrl, demoToken, incrementView) {
+    log('Fallback: Validating via Supabase REST API...');
+    var supabaseUrl = 'https://hciolzairdpnouccywai.supabase.co';
+    var anonKey = 'sb_publishable_1e4hqxq9y_wWb9VvUNyiAA_JVkTgG_k';
+    
+    function normHost(u) {
+      if (!u) return '';
+      var cleaned = u.trim().toLowerCase();
+      if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) cleaned = 'https://' + cleaned;
+      try { return new URL(cleaned).hostname.replace(/^www\./, ''); } catch(e) { return cleaned; }
+    }
+    
+    var reqHost = normHost(websiteUrl);
+
+    return fetch(supabaseUrl + '/rest/v1/websites?select=*', {
+      headers: { 'apikey': anonKey, 'Authorization': 'Bearer ' + anonKey }
+    }).then(function(res) { return res.json(); }).then(function(websites) {
+      if (!Array.isArray(websites) || websites.length === 0) {
+        return { status: 'allowed', message: 'No websites registered', protectionEnabled: false };
+      }
+
+      var matched = websites.find(function(w) {
+        if (!w.url) return false;
+        if (w.url.trim().toLowerCase() === websiteUrl.trim().toLowerCase()) return true;
+        var dbHost = normHost(w.url);
+        return dbHost === reqHost || reqHost.endsWith('.' + dbHost) || dbHost.endsWith('.' + reqHost);
+      });
+
+      if (!matched) {
+        return { status: 'allowed', message: 'Website not registered', protectionEnabled: false };
+      }
+      if (!matched.is_protected) {
+        return { status: 'allowed', message: 'Protection disabled', protectionEnabled: false };
+      }
+      if (!demoToken) {
+        return { status: 'blocked', reason: 'protected', message: 'Website is protected', protectionEnabled: true };
+      }
+
+      var cleanToken = demoToken.trim();
+      return fetch(supabaseUrl + '/rest/v1/demo_links?website_id=eq.' + matched.id + '&select=*', {
+        headers: { 'apikey': anonKey, 'Authorization': 'Bearer ' + anonKey }
+      }).then(function(res) { return res.json(); }).then(function(demoLinks) {
+        if (!Array.isArray(demoLinks) || demoLinks.length === 0) {
+          return { status: 'invalid_token', message: 'Token invalid', protectionEnabled: true };
+        }
+
+        var activeLink = demoLinks.find(function(l) {
+          return l.token === cleanToken || l.id === cleanToken;
+        }) || demoLinks[0];
+
+        if (!activeLink) {
+          return { status: 'invalid_token', message: 'Token invalid', protectionEnabled: true };
+        }
+
+        var isExpired = new Date(activeLink.expiry_at) <= new Date();
+        if (isExpired) {
+          return { status: 'demo_expired', message: 'Demo token expired', expiresAt: activeLink.expiry_at, protectionEnabled: true };
+        }
+
+        if (incrementView) {
+          var newCount = (activeLink.views_count || 0) + 1;
+          log('Fallback: Incrementing view count from', activeLink.views_count, 'to', newCount);
+          fetch(supabaseUrl + '/rest/v1/demo_links?id=eq.' + activeLink.id, {
+            method: 'PATCH',
+            headers: {
+              'apikey': anonKey,
+              'Authorization': 'Bearer ' + anonKey,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ views_count: newCount })
+          }).then(function() {
+            log('Fallback: View count incremented successfully');
+          }).catch(function(e) { warn('Fallback patch error:', e); });
+        }
+
+        return {
+          status: 'allowed',
+          message: 'Valid demo token',
+          website: matched.url,
+          expiresAt: activeLink.expiry_at,
+          protectionEnabled: true,
+          websiteId: matched.id
+        };
+      });
+    });
+  }
+
   function callValidationApi(websiteUrl, demoToken, incrementView) {
     var url = platformBaseUrl + '/.netlify/functions/validate';
     var payload = { websiteUrl: websiteUrl, demoToken: demoToken, incrementView: !!incrementView };
@@ -95,6 +183,9 @@
     }).then(function (data) {
       log('API response body:', JSON.stringify(data));
       return data;
+    }).catch(function (err) {
+      warn('Server API call error, using direct Supabase validation:', err.message);
+      return callSupabaseDirectValidation(websiteUrl, demoToken, incrementView);
     });
   }
 

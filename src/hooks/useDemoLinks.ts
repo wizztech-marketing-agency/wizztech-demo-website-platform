@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { demoLinkService } from '../services/demoLinkService';
+import { supabase } from '../services/supabaseClient';
 import type { DemoLink, CreateDemoLinkInput } from '../types/demoLink';
 import toast from 'react-hot-toast';
 
@@ -7,6 +9,26 @@ import toast from 'react-hot-toast';
  * Hook to retrieve all generated demo links.
  */
 export const useDemoLinks = () => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    // Subscribe to realtime database changes on demo_links table
+    const channel = supabase
+      .channel('public:demo_links_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'demo_links' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['demo_links'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery<DemoLink[], Error>({
     queryKey: ['demo_links'],
     queryFn: demoLinkService.getDemoLinks,

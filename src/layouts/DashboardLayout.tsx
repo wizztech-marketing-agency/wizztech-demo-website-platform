@@ -11,10 +11,15 @@ import {
   Bell, 
   Search, 
   ChevronRight,
-  Globe
+  Globe,
+  Eye,
+  Clock,
+  CheckCheck,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import wizzTechLogo from '../assets/logo/WIZZTECH-logo.png';
+import { useNotifications } from '../hooks/useNotifications';
 
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -30,11 +35,20 @@ export const DashboardLayout: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
+  const { notifications, hasUnread, markAllAsRead, clearNotifications } = useNotifications();
+
   const currentPath = location.pathname;
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const handleToggleNotifications = () => {
+    if (!showNotifications && hasUnread) {
+      markAllAsRead();
+    }
+    setShowNotifications(!showNotifications);
   };
 
   const activeItem = NAV_ITEMS.find(item => item.path === currentPath) || NAV_ITEMS[0];
@@ -83,10 +97,10 @@ export const DashboardLayout: React.FC = () => {
         <div className="p-4 border-t border-border bg-white">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-secondary hover:text-red-500 hover:bg-red-50/50 rounded-xl transition-all cursor-pointer"
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-secondary hover:text-red-500 hover:bg-red-50/50 rounded-xl transition-all cursor-pointer group"
           >
-            <LogOut className="w-4.5 h-4.5 text-secondary/80 hover:text-red-500" />
-            <span>Logout</span>
+            <LogOut className="w-4.5 h-4.5 text-secondary/80 group-hover:text-red-500 transition-colors" />
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -149,10 +163,10 @@ export const DashboardLayout: React.FC = () => {
                     setIsMobileNavOpen(false);
                     handleLogout();
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-secondary hover:text-red-500 rounded-xl transition-all cursor-pointer"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-secondary hover:text-red-500 hover:bg-red-50/50 rounded-xl transition-all cursor-pointer"
                 >
-                  <LogOut className="w-4.5 h-4.5" />
-                  <span>Logout</span>
+                  <LogOut className="w-4.5 h-4.5 text-secondary/80 hover:text-red-500" />
+                  <span>Sign Out</span>
                 </button>
               </div>
             </motion.div>
@@ -177,7 +191,7 @@ export const DashboardLayout: React.FC = () => {
 
             {/* Breadcrumb / Current Page Title */}
             <div className="flex items-center gap-2 text-sm font-semibold">
-              <span className="text-secondary/70">Console</span>
+              <span className="text-secondary/70">Platform</span>
               <ChevronRight className="w-3.5 h-3.5 text-secondary/40" />
               <span className="text-black font-bold">{activeItem.label}</span>
             </div>
@@ -195,11 +209,14 @@ export const DashboardLayout: React.FC = () => {
             {/* Notifications Bell */}
             <div className="relative">
               <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className={`p-2 rounded-full border border-border transition-all hover:bg-black/5 text-secondary/80 cursor-pointer ${showNotifications ? 'bg-black/5 text-black' : ''}`}
+                onClick={handleToggleNotifications}
+                className={`p-2 rounded-full border border-border transition-all hover:bg-black/5 text-secondary/80 cursor-pointer relative ${showNotifications ? 'bg-black/5 text-black' : ''}`}
+                title="View real-time notifications"
               >
                 <Bell className="w-4 h-4" />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary" />
+                {hasUnread && (
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-white animate-pulse" />
+                )}
               </button>
 
               {/* Notification Overlay Popover */}
@@ -211,25 +228,55 @@ export const DashboardLayout: React.FC = () => {
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-2.5 w-[300px] border border-border bg-white rounded-luxury shadow-luxury z-40 p-4"
+                      className="absolute right-0 mt-2.5 w-[340px] border border-border bg-white rounded-2xl shadow-luxury z-40 p-4"
                     >
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-secondary mb-3">Recent Notifications</h4>
-                      <div className="space-y-3">
-                        <div className="flex gap-2.5 items-start">
-                          <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 text-xs font-bold">1</div>
-                          <div>
-                            <p className="text-xs font-bold text-black leading-snug">Demo Protection Sync Live</p>
-                            <p className="text-[10px] text-secondary">Registry database is currently synced with Supabase.</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2.5 items-start">
-                          <div className="w-6 h-6 rounded-lg bg-black/5 text-secondary flex items-center justify-center shrink-0"><Globe className="w-3.5 h-3.5 text-secondary" /></div>
-                          <div>
-                            <p className="text-xs font-bold text-black leading-snug">Future Intercept API Ready</p>
-                            <p className="text-[10px] text-secondary">Protected websites can query verify session states.</p>
-                          </div>
-                        </div>
+                      <div className="flex items-center justify-between border-b border-border pb-2.5 mb-3">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
+                          <span>Live Notifications</span>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        </h4>
+                        {notifications.length > 0 && (
+                          <button 
+                            onClick={clearNotifications}
+                            className="text-[10px] text-secondary hover:text-red-500 flex items-center gap-1 font-semibold transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" /> Clear
+                          </button>
+                        )}
                       </div>
+
+                      {notifications.length === 0 ? (
+                        <div className="text-center py-6 text-secondary/50 text-xs font-medium">
+                          No notifications at this time.
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                          {notifications.map((n) => (
+                            <div key={n.id} className={`flex gap-3 items-start p-2.5 rounded-xl border transition-all ${
+                              !n.read ? 'bg-primary/[0.04] border-primary/20' : 'bg-background/40 border-border'
+                            }`}>
+                              <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
+                                n.type === 'view' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                n.type === 'create' ? 'bg-primary/10 text-primary border border-primary/20' :
+                                n.type === 'expire' ? 'bg-red-50 text-red-500 border border-red-100' :
+                                'bg-secondary/10 text-secondary'
+                              }`}>
+                                {n.type === 'view' && <Eye className="w-3.5 h-3.5" />}
+                                {n.type === 'create' && <Link2 className="w-3.5 h-3.5" />}
+                                {n.type === 'expire' && <Clock className="w-3.5 h-3.5" />}
+                                {n.type === 'website' && <Globe className="w-3.5 h-3.5" />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs font-bold text-black leading-snug">{n.title}</p>
+                                  <span className="text-[9px] text-secondary font-medium ml-2 shrink-0">{n.timestamp}</span>
+                                </div>
+                                <p className="text-[11px] text-secondary/90 leading-tight mt-0.5">{n.message}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </motion.div>
                   </>
                 )}
@@ -266,10 +313,10 @@ export const DashboardLayout: React.FC = () => {
                             setShowProfileMenu(false);
                             handleLogout();
                           }}
-                          className="w-full text-left flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50/50 rounded-xl transition-all cursor-pointer"
+                          className="w-full text-left flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
                         >
                           <LogOut className="w-3.5 h-3.5" />
-                          <span>Logout Console</span>
+                          <span>Sign Out</span>
                         </button>
                       </div>
                     </motion.div>

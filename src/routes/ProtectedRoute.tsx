@@ -23,7 +23,7 @@ export const ProtectedRoute: React.FC = () => {
           transition={{ delay: 0.5 }}
           className="text-xs font-semibold tracking-wider text-secondary uppercase mt-4 animate-pulse"
         >
-          Securing Access Console...
+          Securing Platform Access...
         </motion.p>
       </div>
     );

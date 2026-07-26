@@ -123,7 +123,7 @@ export const DashboardHome: React.FC = () => {
             onClick={handleSync}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Sync Console</span>
+            <span>Sync Platform</span>
           </button>
         </div>
       </div>
