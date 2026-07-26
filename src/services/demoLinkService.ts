@@ -14,7 +14,7 @@ export const demoLinkService = {
    * Passes the current user's auth token so the Netlify function can INSERT with proper
    * RLS authentication (the "authenticated" INSERT policy applies).
    */
-  async generateDemoLinkViaApi(params: { websiteId: string; expiry: string }): Promise<GenerateDemoLinkResponse> {
+  async generateDemoLinkViaApi(params: { websiteId: string; expiry: string | number }): Promise<GenerateDemoLinkResponse> {
     // Get the current user session so we can pass the access token to the server function
     const { data: { session } } = await supabase.auth.getSession();
     const accessToken = session?.access_token || null;
