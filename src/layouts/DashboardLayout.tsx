@@ -230,9 +230,8 @@ export const DashboardLayout: React.FC = () => {
                       className="absolute right-0 mt-2.5 w-[340px] border border-border bg-white rounded-2xl shadow-luxury z-40 p-4"
                     >
                       <div className="flex items-center justify-between border-b border-border pb-2.5 mb-3">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-black">
                           <span>Live Notifications</span>
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                         </h4>
                         {notifications.length > 0 && (
                           <button 

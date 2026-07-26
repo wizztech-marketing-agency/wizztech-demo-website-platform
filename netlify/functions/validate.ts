@@ -354,25 +354,29 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
   console.log('[Validate] Step 7 PASSED: Token is active and not expired');
 
-  // STEP 8: Increment view count (once per session — SDK handles deduplication)
-  let updatedViewsCount = (activeLink.views_count || 0) + (incrementView ? 1 : 0);
-  if (incrementView) {
-    console.log('[Validate] Step 8: Incrementing view count for link id:', activeLink.id);
+  // STEP 8: Increment view count ONLY if all security checks passed AND incrementView is true
+  const shouldIncrement = incrementView === true || (incrementView as any) === 'true';
+
+  if (shouldIncrement) {
+    console.log('[Validate] Step 8: Incrementing view count by 1 for link id:', activeLink.id);
     const { error: rpcError } = await supabase.rpc('increment_demo_link_views', { link_id: activeLink.id });
     if (rpcError) {
       console.warn('[Validate] Step 8: RPC increment failed, falling back to direct update:', JSON.stringify(rpcError));
+      const nextViewsCount = (activeLink.views_count || 0) + 1;
       const { error: updateError } = await supabase
         .from('demo_links')
-        .update({ views_count: updatedViewsCount })
+        .update({ views_count: nextViewsCount })
         .eq('id', activeLink.id);
       if (updateError) {
         console.warn('[Validate] Step 8: Failed to increment views_count:', JSON.stringify(updateError));
       } else {
-        console.log('[Validate] Step 8: views_count fallback update succeeded, new count:', updatedViewsCount);
+        console.log('[Validate] Step 8: views_count fallback update succeeded, new count:', nextViewsCount);
       }
     } else {
       console.log('[Validate] Step 8: views_count incremented successfully via RPC');
     }
+  } else {
+    console.log('[Validate] Step 8: incrementView is false or missing. Skipping views_count increment.');
   }
 
   console.log('[Validate] ── RESULT: ALLOWED ────────────────────────────');

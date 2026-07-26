@@ -32,3 +32,11 @@ SELECT policyname, cmd, roles
 FROM pg_policies
 WHERE tablename = 'demo_links'
 ORDER BY policyname;
+
+-- FIX 3: Enable realtime replication for demo_links table
+begin;
+  -- Remove it first if it exists to avoid errors, then add it
+  alter publication supabase_realtime drop table if exists public.demo_links;
+  alter publication supabase_realtime add table public.demo_links;
+commit;
+

@@ -13,6 +13,8 @@ import { Websites } from './views/websites/Websites';
 import { DemoLinks } from './views/demo-links/DemoLinks';
 import { IframeAuthCheck } from './views/auth/IframeAuthCheck';
 
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -24,7 +26,8 @@ const queryClient = new QueryClient({
 
 const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
           <Routes>
@@ -82,6 +85,7 @@ const App: React.FC = () => {
         />
       </AuthProvider>
     </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

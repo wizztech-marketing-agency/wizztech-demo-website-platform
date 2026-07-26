@@ -12,20 +12,30 @@ export const useDemoLinks = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Subscribe to realtime database changes on demo_links table
+    // Generate a unique channel ID to prevent duplicate subscription errors on re-mounts
+    const channelId = `realtime_demo_links_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel('public:demo_links_realtime')
+      .channel(channelId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'demo_links' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['demo_links'] });
         }
-      )
-      .subscribe();
+      );
+
+    try {
+      channel.subscribe();
+    } catch (e) {
+      console.warn('Realtime channel subscription error:', e);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (e) {
+        console.warn(e);
+      }
     };
   }, [queryClient]);
 

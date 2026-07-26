@@ -75,6 +75,25 @@
 
   // ── API Call ───────────────────────────────────────────────────────────────
 
+  function hashTokenAsync(token) {
+    if (!token) return Promise.resolve('');
+    var str = token.trim();
+    if (!window.crypto || !window.crypto.subtle) {
+      return Promise.resolve(str);
+    }
+    try {
+      var msgBuffer = new TextEncoder().encode(str);
+      return window.crypto.subtle.digest('SHA-256', msgBuffer).then(function(hashBuffer) {
+        var hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+      }).catch(function() {
+        return Promise.resolve(str);
+      });
+    } catch (e) {
+      return Promise.resolve(str);
+    }
+  }
+
   function callSupabaseDirectValidation(websiteUrl, demoToken, incrementView) {
     log('Fallback: Validating via Supabase REST API...');
     var supabaseUrl = 'https://hciolzairdpnouccywai.supabase.co';
@@ -114,51 +133,53 @@
       }
 
       var cleanToken = demoToken.trim();
-      return fetch(supabaseUrl + '/rest/v1/demo_links?website_id=eq.' + matched.id + '&select=*', {
-        headers: { 'apikey': anonKey, 'Authorization': 'Bearer ' + anonKey }
-      }).then(function(res) { return res.json(); }).then(function(demoLinks) {
-        if (!Array.isArray(demoLinks) || demoLinks.length === 0) {
-          return { status: 'invalid_token', message: 'Token invalid', protectionEnabled: true };
-        }
+      return hashTokenAsync(cleanToken).then(function(hashedToken) {
+        return fetch(supabaseUrl + '/rest/v1/demo_links?website_id=eq.' + matched.id + '&select=*', {
+          headers: { 'apikey': anonKey, 'Authorization': 'Bearer ' + anonKey }
+        }).then(function(res) { return res.json(); }).then(function(demoLinks) {
+          if (!Array.isArray(demoLinks) || demoLinks.length === 0) {
+            return { status: 'invalid_token', message: 'Token invalid', protectionEnabled: true };
+          }
 
-        var activeLink = demoLinks.find(function(l) {
-          return l.token === cleanToken || l.id === cleanToken;
-        }) || demoLinks[0];
+          var activeLink = demoLinks.find(function(l) {
+            return l.token === cleanToken || l.token === hashedToken || l.id === cleanToken;
+          });
 
-        if (!activeLink) {
-          return { status: 'invalid_token', message: 'Token invalid', protectionEnabled: true };
-        }
+          if (!activeLink) {
+            return { status: 'invalid_token', message: 'Token invalid', protectionEnabled: true };
+          }
 
-        var isExpired = new Date(activeLink.expiry_at) <= new Date();
-        if (isExpired) {
-          return { status: 'demo_expired', message: 'Demo token expired', expiresAt: activeLink.expiry_at, protectionEnabled: true };
-        }
+          var isExpired = new Date(activeLink.expiry_at) <= new Date();
+          if (isExpired) {
+            return { status: 'demo_expired', message: 'Demo token expired', expiresAt: activeLink.expiry_at, protectionEnabled: true };
+          }
 
-        if (incrementView) {
-          var newCount = (activeLink.views_count || 0) + 1;
-          log('Fallback: Incrementing view count from', activeLink.views_count, 'to', newCount);
-          fetch(supabaseUrl + '/rest/v1/demo_links?id=eq.' + activeLink.id, {
-            method: 'PATCH',
-            headers: {
-              'apikey': anonKey,
-              'Authorization': 'Bearer ' + anonKey,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({ views_count: newCount })
-          }).then(function() {
-            log('Fallback: View count incremented successfully');
-          }).catch(function(e) { warn('Fallback patch error:', e); });
-        }
+          if (incrementView) {
+            var newCount = (activeLink.views_count || 0) + 1;
+            log('Fallback: Incrementing view count for link id', activeLink.id, 'from', activeLink.views_count, 'to', newCount);
+            fetch(supabaseUrl + '/rest/v1/demo_links?id=eq.' + activeLink.id, {
+              method: 'PATCH',
+              headers: {
+                'apikey': anonKey,
+                'Authorization': 'Bearer ' + anonKey,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+              },
+              body: JSON.stringify({ views_count: newCount })
+            }).then(function() {
+              log('Fallback: View count incremented successfully');
+            }).catch(function(e) { warn('Fallback patch error:', e); });
+          }
 
-        return {
-          status: 'allowed',
-          message: 'Valid demo token',
-          website: matched.url,
-          expiresAt: activeLink.expiry_at,
-          protectionEnabled: true,
-          websiteId: matched.id
-        };
+          return {
+            status: 'allowed',
+            message: 'Valid demo token',
+            website: matched.url,
+            expiresAt: activeLink.expiry_at,
+            protectionEnabled: true,
+            websiteId: matched.id
+          };
+        });
       });
     });
   }
@@ -304,17 +325,10 @@
       log('No demo token found in URL and no valid session cache exists. Sending null token (will be blocked if site is protected).');
     }
 
-    // Increment view only once per session per token
-    var incrementView = false;
-    if (tokenValue && SESSION_CACHE_ENABLED) {
-      var hasIncremented = sessionStorage.getItem('wizztech_view_incremented_' + tokenValue);
-      if (!hasIncremented) {
-        incrementView = true;
-        log('Will increment view count (first time for this token in this session)');
-      }
-    } else if (tokenValue) {
-      // When cache disabled, always count the view
-      incrementView = true;
+    // Always increment view count when a token is present in the URL
+    var incrementView = !!tokenValue;
+    if (incrementView) {
+      log('Token found in URL, incrementing view count');
     }
 
     // ── Call Validation API ──────────────────────────────────────────────────
