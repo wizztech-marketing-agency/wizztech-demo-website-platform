@@ -7,10 +7,12 @@ import { ProtectedRoute } from './routes/ProtectedRoute';
 import { AuthLayout } from './layouts/AuthLayout';
 import { Login } from './views/auth/Login';
 import { ForgotPassword } from './views/auth/ForgotPassword';
+import { ResetPassword } from './views/auth/ResetPassword';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { DashboardHome } from './views/dashboard/DashboardHome';
 import { Websites } from './views/websites/Websites';
 import { DemoLinks } from './views/demo-links/DemoLinks';
+import { ProfileSettings } from './views/profile/ProfileSettings';
 import { IframeAuthCheck } from './views/auth/IframeAuthCheck';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -35,6 +37,7 @@ const App: React.FC = () => {
             <Route element={<AuthLayout />}>
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
             </Route>
 
             {/* Cross-Domain Protection Auth Frame */}
@@ -46,6 +49,7 @@ const App: React.FC = () => {
                 <Route index element={<DashboardHome />} />
                 <Route path="websites" element={<Websites />} />
                 <Route path="demo-links" element={<DemoLinks />} />
+                <Route path="profile" element={<ProfileSettings />} />
               </Route>
             </Route>
 

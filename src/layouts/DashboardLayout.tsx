@@ -14,7 +14,8 @@ import {
   Globe,
   Eye,
   Clock,
-  Trash2
+  Trash2,
+  User as UserIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import wizzTechLogo from '../assets/logo/WIZZTECH-logo.png';
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/dashboard/websites', label: 'Protected Websites', icon: ShieldCheck },
   { path: '/dashboard/demo-links', label: 'Demo Links', icon: Link2 },
+  { path: '/dashboard/profile', label: 'Profile Settings', icon: UserIcon },
 ];
 
 export const DashboardLayout: React.FC = () => {
@@ -287,7 +289,9 @@ export const DashboardLayout: React.FC = () => {
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="w-8 h-8 rounded-full bg-black text-white hover:bg-black/85 flex items-center justify-center text-xs font-bold transition-all border border-border shadow-soft cursor-pointer"
               >
-                {user?.email ? user.email.substring(0, 2).toUpperCase() : 'OW'}
+                {(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || 'OW')
+                  .substring(0, 2)
+                  .toUpperCase()}
               </button>
 
               {/* Profile Overlay Dropdown */}
@@ -303,9 +307,20 @@ export const DashboardLayout: React.FC = () => {
                     >
                       <div className="px-3.5 py-3 border-b border-border mb-1">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-secondary/60">Active Session</p>
-                        <p className="text-xs font-bold text-black truncate mt-0.5">{user?.email || 'owner@wizztech.com'}</p>
+                        <p className="text-xs font-bold text-black truncate mt-0.5 font-sans">
+                          {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || 'owner@wizztech.com'}
+                        </p>
+                        <p className="text-[10px] text-secondary truncate mt-0.5">{user?.email}</p>
                       </div>
-                      <div className="pt-1">
+                      <div className="pt-1 space-y-0.5">
+                        <Link
+                          to="/dashboard/profile"
+                          onClick={() => setShowProfileMenu(false)}
+                          className="w-full text-left flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-black hover:bg-black/5 rounded-xl transition-all cursor-pointer"
+                        >
+                          <UserIcon className="w-3.5 h-3.5 text-primary" />
+                          <span>Profile Settings</span>
+                        </Link>
                         <button
                           onClick={() => {
                             setShowProfileMenu(false);

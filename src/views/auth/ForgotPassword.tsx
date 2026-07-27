@@ -85,15 +85,17 @@ export const ForgotPassword: React.FC = () => {
           <div className="space-y-1">
             <h3 className="text-sm font-bold text-black">Reset Link Dispatched</h3>
             <p className="text-xs text-secondary max-w-[280px] mx-auto">
-              We have dispatched recovery instructions to your email address. Please inspect your inbox.
+              We have sent recovery instructions to your email address. Please open your Gmail/email inbox and click the link in the email to set your new password.
             </p>
           </div>
-          <Link
-            to="/login"
-            className="inline-flex items-center gap-2 text-xs font-bold text-primary hover:text-primary-hover transition-colors pt-2"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Login
-          </Link>
+          <div className="pt-2">
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-2 text-xs font-bold text-primary hover:text-primary-hover transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to Login
+            </Link>
+          </div>
         </motion.div>
       ) : (
         <>
